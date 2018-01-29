@@ -44,12 +44,14 @@ var astar = {
              path to the closest node if the target is unreachable.
   * @param {Function} [options.heuristic] Heuristic function (see
   *          astar.heuristics).
+  * @param {number} [options.turningPenalty] Turning penalty.
   */
   search: function(graph, start, end, options) {
     graph.cleanDirty();
     options = options || {};
     var heuristic = options.heuristic || astar.heuristics.manhattan;
     var closest = options.closest || false;
+    var penaltyFactor = options.turningPenalty || 0.5;
 
     var openHeap = getHeap();
     var closestNode = start; // set the start node to be the closest if required
@@ -58,6 +60,7 @@ var astar = {
     graph.markDirty(start);
 
     openHeap.push(start);
+
 
     while (openHeap.size() > 0) {
 
@@ -85,7 +88,9 @@ var astar = {
 
         // The g score is the shortest distance from start to current node.
         // We need to check if the path we have arrived at this neighbor is the shortest one we have seen yet.
-        var gScore = currentNode.g + neighbor.getCost(currentNode);
+        var theta = neighbor.getIncludedAngle(currentNode.parent, currentNode);
+        var gScore = currentNode.g + neighbor.getCost(currentNode) *
+          (1 + (theta % 180 == 0 ? 0 : 1) * penaltyFactor);
         var beenVisited = neighbor.visited;
 
         if (!beenVisited || gScore < neighbor.g) {
@@ -94,6 +99,7 @@ var astar = {
           neighbor.visited = true;
           neighbor.parent = currentNode;
           neighbor.h = neighbor.h || heuristic(neighbor, end);
+          neighbor.theta = theta;
           neighbor.g = gScore;
           neighbor.f = neighbor.g + neighbor.h;
           graph.markDirty(neighbor);
@@ -169,6 +175,10 @@ function Graph(gridIn, options) {
     }
   }
   this.init();
+}
+
+Graph.normalizeAngle = function(angle) {
+  return (angle % 360) + (angle < 0 ? 360 : 0);
 }
 
 Graph.prototype.init = function() {
@@ -271,6 +281,25 @@ GridNode.prototype.getCost = function(fromNeighbor) {
   }
   return this.weight;
 };
+    
+GridNode.prototype.getDirection = function(another) {
+  var y = another.y - this.y;
+  var x = another.x - this.x;
+  var theta = Math.atan2(y / Math.abs(y) || 0, x / Math.abs(x) || 0) / Math.PI * 180;
+  return Math.floor(Graph.normalizeAngle(theta));
+  // return Math.floor(Graph.normalizeAngle(theta) / 90) * 90;  // rounded to 90s
+}
+
+GridNode.prototype.getIncludedAngle = function(prev, next) {
+  if (prev == null) {
+    return 0;
+  }
+  var start = prev.getDirection(this);
+  var end = this.getDirection(next);
+  var angleDiff = Math.abs(end - start);
+  angleDiff = angleDiff > 180 ? 360 - angleDiff : angleDiff;
+  return angleDiff;
+}
 
 GridNode.prototype.isWall = function() {
   return this.weight === 0;

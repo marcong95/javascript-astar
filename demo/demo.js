@@ -79,6 +79,7 @@ GraphSearch.prototype.setOption = function(opt) {
 };
 GraphSearch.prototype.initialize = function() {
     this.grid = [];
+    this.lastPath = []; // for animating
     var self = this,
         nodes = [],
         $graph = this.$graph;
@@ -173,7 +174,10 @@ GraphSearch.prototype.drawDebugInfo = function() {
             var node = that.nodeFromElement($(this)),
                 debug = false;
             if (node.visited) {
-                debug = "F: " + node.f + "<br />G: " + node.g + "<br />H: " + node.h;
+                debug = "F: " + node.f + 
+                    "<br />G: " + node.g + 
+                    "<br />&theta;: " + node.theta + 
+                    "<br />H: " + node.h;
             }
 
             if (debug) {
@@ -206,10 +210,13 @@ GraphSearch.prototype.animatePath = function(path) {
     };
 
     var self = this;
+    var currPath = path;
     // will add start class if final
     var removeClass = function(path, i) {
         if(i >= path.length) { // finished removing path, set start positions
-            return setStartClass(path, i);
+            // return setStartClass(path, i);
+            console.log(currPath);
+            return addClass(currPath, 0);
         }
         elementFromNode(path[i]).removeClass(css.active);
         setTimeout(function() {
@@ -220,11 +227,13 @@ GraphSearch.prototype.animatePath = function(path) {
         if(i === path.length) {
             self.$graph.find("." + css.start).removeClass(css.start);
             elementFromNode(path[i-1]).addClass(css.start);
+            self.lastPath = currPath;
         }
     };
     var addClass = function(path, i) {
         if(i >= path.length) { // Finished showing path, now remove
-            return removeClass(path, 0);
+            return setStartClass(path, i);
+            // return removeClass(path, 0);
         }
         elementFromNode(path[i]).addClass(css.active);
         setTimeout(function() {
@@ -232,7 +241,9 @@ GraphSearch.prototype.animatePath = function(path) {
         }, timeout*path[i].getCost());
     };
 
+    this.$graph.find("." + css.active).removeClass(css.active);
     addClass(path, 0);
+    // removeClass(this.lastPath, 0);
     this.$graph.find("." + css.start).removeClass(css.start);
     this.$graph.find("." + css.finish).removeClass(css.finish).addClass(css.start);
 };
